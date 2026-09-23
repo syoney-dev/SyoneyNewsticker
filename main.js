@@ -14,7 +14,7 @@ const DEFAULTS = {
   titleHoldSeconds: 1.5,    // タイトルが出てから本文が流れ始めるまでの秒数
   itemIntervalSeconds: 1.0, // 本文が流れ切ってから次のニュースに切り替わるまでの秒数
   newsDir: '.',             // ニュースの md を探すフォルダ（このアプリのフォルダからの相対パス可）
-  newsFile: '',             // 特定の md を表示したいときに指定（空なら newsDir の最新ファイル）
+  newsFile: '',             // 特定の md を表示したいときに指定（空なら newsDir の latest_news.md）
   dotRows: 16,              // 1行あたりの縦ドット数（文字の細かさ）
   dotFill: 0.78,            // ドットの直径（ドット間隔に対する割合）
   lineGapDots: 3,           // 1行目と2行目の間のドット数
@@ -97,7 +97,10 @@ function findNewsFile(c) {
     return null;
   }
   if (!files.length) return null;
-  // 日付で始まるファイル（例: 20260923_today_news.md）を優先して、名前の新しい順
+  // ルーティンが毎回上書きする latest_news.md を最優先
+  const latest = files.find((f) => /^latest_news\.md$/i.test(f));
+  if (latest) return path.join(dir, latest);
+  // なければ日付で始まるファイル（例: 20260923_today_news.md）を優先して、名前の新しい順
   const dated = files.filter((f) => /^\d{8}/.test(f));
   const pool = (dated.length ? dated : files).sort().reverse();
   return path.join(dir, pool[0]);
