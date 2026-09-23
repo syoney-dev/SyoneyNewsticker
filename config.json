@@ -1,0 +1,31 @@
+{
+  "scrollSpeed": 100,
+  "fontSize": 15,
+
+  "titleHoldSeconds": 1.5,
+  "itemIntervalSeconds": 1.0,
+
+  "newsDir": ".",
+  "newsFile": "",
+
+  "dotRows": 15,
+  "dotFill": 0.8,
+  "lineGapDots": 3,
+  "paddingDots": 3,
+  "showUnlitDots": true,
+  "glow": 0.55,
+  "backgroundOpacity": 0.5,
+  "fontFamily": "\"MS Gothic\", \"Osaka-Mono\", monospace",
+  "fontWeight": "normal",
+  "dotThreshold": 0.45,
+
+  "colors": {
+    "title": "#ff8a1c",
+    "body": "#39ff5a",
+    "unlit": "#171717",
+    "background": "#000000"
+  },
+
+  "alwaysOnTop": true,
+  "reserveScreenSpace": true
+}

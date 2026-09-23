@@ -1,0 +1,15 @@
+{
+  "name": "led-news-ticker",
+  "version": "1.0.0",
+  "description": "黒背景にLEDドットでニュースを流すデスクトップ・ニュースティッカー",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^44.4.5"
+  },
+  "dependencies": {
+    "koffi": "^3.3.1"
+  }
+}
