@@ -45,7 +45,8 @@ class AppBar {
   // onFullscreen(bool): 全画面アプリが出た/消えたとき
   constructor(win, { onPosChanged, onFullscreen }) {
     this.win = win;
-    this.hwnd = Number(win.getNativeWindowHandle().readBigUInt64LE(0));
+    // HWND は Windows のときだけ 8 バイト。Linux などでは使わないので読まない
+    this.hwnd = process.platform === 'win32' ? Number(win.getNativeWindowHandle().readBigUInt64LE(0)) : 0;
     this.registered = false;
     this.lastKey = null;
     this.lastRect = null;
