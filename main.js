@@ -1,8 +1,10 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, shell, powerMonitor } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { AppBar } = require('./appbar');
+const { fetchNews } = require('./fetch-news');
+const { fetchWeather } = require('./fetch-weather');
 
 const APP_DIR = __dirname;
 const CONFIG_PATH = path.join(APP_DIR, 'config.json');
@@ -33,12 +35,18 @@ const DEFAULTS = {
   },
   alwaysOnTop: true,
   reserveScreenSpace: true, // 画面の上端/下端をティッカー用に確保し、他のウィンドウが重ならないようにする（Windows）
+  autoFetch: true,          // Yahoo!ニュースから自動でニュースを取得して latest_news.md を上書きする
+  fetchIntervalMinutes: 60, // 自動取得の間隔（分）。起動時とスリープ復帰時にも取得する
+  newsCount: 5,             // 取得するニュースの件数
+  weatherEnabled: true,     // ニュースを流し終えたら「全国の天気」を流す（気象庁の予報）
+  weatherSwitchHour: 18,    // この時刻からは明日の天気を流す
 };
 
 let win = null;
 let tray = null;
 let config = null;
 let news = { file: null, heading: '', items: [] };
+let weather = null; // latest_weather.json の中身 { fetchedAt, link, days: { 'YYYY-MM-DD': '東京：…　大阪：…' } }
 let paused = false;
 
 if (!app.requestSingleInstanceLock()) {
@@ -71,6 +79,9 @@ function loadConfig() {
   c.glow = clamp(c.glow, 0, 2, DEFAULTS.glow);
   c.backgroundOpacity = clamp(c.backgroundOpacity, 0, 1, DEFAULTS.backgroundOpacity);
   c.dotThreshold = clamp(c.dotThreshold, 0.05, 0.95, DEFAULTS.dotThreshold);
+  c.fetchIntervalMinutes = clamp(c.fetchIntervalMinutes, 5, 24 * 60, DEFAULTS.fetchIntervalMinutes);
+  c.newsCount = Math.round(clamp(c.newsCount, 1, 20, DEFAULTS.newsCount));
+  c.weatherSwitchHour = Math.round(clamp(c.weatherSwitchHour, 0, 24, DEFAULTS.weatherSwitchHour));
   return c;
 }
 
@@ -153,6 +164,28 @@ function loadNews() {
   }
 }
 
+// ---- 天気 ----
+function weatherFile() {
+  return path.join(path.resolve(APP_DIR, config.newsDir), 'latest_weather.json');
+}
+
+function loadWeather() {
+  try {
+    weather = JSON.parse(fs.readFileSync(weatherFile(), 'utf8'));
+  } catch {
+    weather = null;
+  }
+}
+
+// ニュースのあとに流す「全国の天気」。今日か明日かは流すときに画面側で決める
+function displayItems() {
+  const items = [...news.items];
+  if (config.weatherEnabled && weather && weather.days) {
+    items.push({ kind: 'weather', days: weather.days, link: weather.link || '' });
+  }
+  return items;
+}
+
 // ---- ウィンドウ ----
 const STATE_PATH = () => path.join(app.getPath('userData'), 'state.json');
 
@@ -214,7 +247,7 @@ function payload() {
   return {
     config,
     layout: computeLayout(config),
-    news: { heading: news.heading, items: news.items, file: news.file ? path.basename(news.file) : '' },
+    news: { heading: news.heading, items: displayItems(), file: news.file ? path.basename(news.file) : '' },
     paused,
   };
 }
@@ -309,6 +342,7 @@ function buildMenu(link) {
       },
     },
     { type: 'separator' },
+    { label: 'ニュースを今すぐ取得', click: () => fetchLatest() },
     { label: 'ニュースを読み込み直す', click: () => { loadNews(); send('news', payload().news); } },
     { label: '設定ファイルを開く', click: () => shell.openPath(CONFIG_PATH) },
     { label: 'ニュースのフォルダを開く', click: () => shell.openPath(path.resolve(APP_DIR, config.newsDir)) },
@@ -364,10 +398,50 @@ function debounce(fn, ms) {
   return () => { clearTimeout(t); t = setTimeout(fn, ms); };
 }
 
+// ---- ニュースの自動取得 ----
+let fetchTimer = null;
+let fetching = false;
+
+// 取得したニュースの書き出し先（newsFile 指定があればそこ、なければ newsDir の latest_news.md）
+function fetchTarget() {
+  return config.newsFile
+    ? path.resolve(APP_DIR, config.newsFile)
+    : path.join(path.resolve(APP_DIR, config.newsDir), 'latest_news.md');
+}
+
+// ニュースと天気を取得する。書き出すとフォルダ監視が気づいて表示も更新される
+// どちらかが失敗しても、もう片方は取得し、失敗したほうは前の内容のまま
+async function fetchLatest() {
+  if (fetching) return;
+  fetching = true;
+  try {
+    await fetchNews({ count: config.newsCount, file: fetchTarget() });
+  } catch (e) {
+    console.error('ニュースを取得できませんでした:', e.message);
+  }
+  if (config.weatherEnabled) {
+    try {
+      await fetchWeather({ file: weatherFile() });
+    } catch (e) {
+      console.error('天気を取得できませんでした:', e.message);
+    }
+  }
+  fetching = false;
+}
+
+function scheduleFetch() {
+  clearInterval(fetchTimer);
+  fetchTimer = null;
+  if (config.autoFetch) fetchTimer = setInterval(fetchLatest, config.fetchIntervalMinutes * 60 * 1000);
+}
+
 const onConfigChange = debounce(() => {
   const before = JSON.stringify([config.newsDir, config.newsFile]);
+  const fetchBefore = JSON.stringify([config.autoFetch, config.fetchIntervalMinutes]);
   config = loadConfig();
   applyWindowSize();
+  if (JSON.stringify([config.autoFetch, config.fetchIntervalMinutes]) !== fetchBefore) scheduleFetch();
+  if (config.weatherEnabled && !weather) fetchLatest();
   if (JSON.stringify([config.newsDir, config.newsFile]) !== before) {
     loadNews();
     setupWatchers();
@@ -377,6 +451,7 @@ const onConfigChange = debounce(() => {
 
 const onNewsChange = debounce(() => {
   loadNews();
+  loadWeather();
   send('news', payload().news);
 }, 400);
 
@@ -394,6 +469,7 @@ function setupWatchers() {
         const full = path.join(dir, name.toString());
         if (full === CONFIG_PATH) onConfigChange();
         if (/\.md$/i.test(full) && path.dirname(full) === newsDir) onNewsChange();
+        if (/^latest_weather\.json$/i.test(path.basename(full)) && path.dirname(full) === newsDir) onNewsChange();
       }));
     } catch (e) {
       console.error('フォルダを監視できませんでした:', dir, e.message);
@@ -437,9 +513,14 @@ ipcMain.on('context-menu', () => buildMenu(currentLink).popup({ window: win }));
 app.whenReady().then(() => {
   config = loadConfig();
   loadNews();
+  loadWeather();
   createWindow();
   createTray();
   setupWatchers();
+  if (config.autoFetch) fetchLatest();
+  scheduleFetch();
+  // スリープから復帰したら、止まっていたあいだのニュースを取り直す
+  powerMonitor.on('resume', () => { if (config.autoFetch) fetchLatest(); });
 
   // デバッグ用: --capture=保存先.png で数秒後の画面を保存して終了
   const cap = process.argv.find((a) => a.startsWith('--capture='));

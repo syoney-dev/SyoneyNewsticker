@@ -4,7 +4,9 @@
   "description": "黒背景にLEDドットでニュースを流すデスクトップ・ニュースティッカー",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "fetch-news": "node fetch-news.js",
+    "fetch-weather": "node fetch-weather.js"
   },
   "devDependencies": {
     "electron": "^44.4.5"

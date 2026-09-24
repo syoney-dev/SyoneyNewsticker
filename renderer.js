@@ -100,9 +100,23 @@ function build() {
   prepareItem();
 }
 
+const pad2 = (n) => String(n).padStart(2, '0');
+const dateKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+// 天気の項目を、流す時点の「今日」か「明日」の表示にする（その日の予報がなければ null）
+function resolveItem(it) {
+  if (!it || it.kind !== 'weather') return it;
+  const now = new Date();
+  const tomorrow = now.getHours() >= cfg.weatherSwitchHour;
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (tomorrow ? 1 : 0));
+  const body = it.days && it.days[dateKey(day)];
+  if (!body) return null;
+  return { title: `全国の天気（${tomorrow ? '明日' : '今日'}）`, body, link: it.link };
+}
+
 function currentItem() {
-  if (items.length) return items[idx % items.length];
-  return { title: 'ニュースがありません', body: 'news_ticker フォルダに md ファイルを置いてください', link: '' };
+  const it = items.length ? resolveItem(items[idx % items.length]) : null;
+  return it || { title: 'ニュースがありません', body: 'news_ticker フォルダに md ファイルを置いてください', link: '' };
 }
 
 function prepareItem() {
@@ -115,6 +129,8 @@ function prepareItem() {
 
 function startItem(i) {
   idx = items.length ? ((i % items.length) + items.length) % items.length : 0;
+  // 流せない項目（その日の天気がまだない など）は飛ばす
+  for (let n = 0; n < items.length && !resolveItem(items[idx]); n++) idx = (idx + 1) % items.length;
   phase = 'hold';
   phaseTime = 0;
   scrollX = layout.cols;
@@ -232,7 +248,7 @@ function applyNews(n) {
   const prevTitle = items.length ? currentItem().title : null;
   items = n.items || [];
   // 同じニュースが残っていればその位置から続ける
-  const keep = items.findIndex((it) => it.title === prevTitle);
+  const keep = items.findIndex((it) => (resolveItem(it) || {}).title === prevTitle);
   if (keep >= 0) {
     idx = keep;
     prepareItem();
@@ -244,6 +260,7 @@ function applyNews(n) {
 window.ticker.onConfig((d) => {
   cfg = d.config;
   layout = d.layout;
+  items = d.news.items || [];
   build();
   startItem(idx);
 });

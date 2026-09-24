@@ -27,5 +27,12 @@
   },
 
   "alwaysOnTop": true,
-  "reserveScreenSpace": true
+  "reserveScreenSpace": true,
+
+  "autoFetch": true,
+  "fetchIntervalMinutes": 60,
+  "newsCount": 5,
+
+  "weatherEnabled": true,
+  "weatherSwitchHour": 18
 }
