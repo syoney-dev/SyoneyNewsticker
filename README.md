@@ -8,6 +8,19 @@
 
 ## 起動方法
 
+### EXE 版（Windows）
+
+[Releases](https://github.com/syoney-dev/SyoneyNewsticker/releases) から次のどちらかをダウンロードします。
+
+- `SyoneyNewsticker-Setup-<版>.exe`: インストーラー
+- `SyoneyNewsticker-Portable-<版>.exe`: インストール不要。そのまま起動できます
+
+EXE 版では、設定（`config.json`）と取得したニュース（`latest_news.md` / `latest_weather.json`）を `%APPDATA%\led-news-ticker` に保存します。右クリックメニューの「設定ファイルを開く」「ニュースのフォルダを開く」からも開けます。
+
+EXE を自分でビルドするときは `npm run dist`（`dist` フォルダにできます）。
+
+### ソースから
+
 ```bash
 npm install
 npm start

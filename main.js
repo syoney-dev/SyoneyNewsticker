@@ -6,8 +6,21 @@ const { AppBar } = require('./appbar');
 const { fetchNews } = require('./fetch-news');
 const { fetchWeather } = require('./fetch-weather');
 
-const APP_DIR = __dirname;
+// EXE版ではアプリ本体のフォルダに書き込めないので、設定とニュースはユーザーのフォルダ
+// （%APPDATA%\led-news-ticker）に置く。初回は同梱の config.json をそこへコピーする
+const APP_DIR = app.isPackaged ? app.getPath('userData') : __dirname;
 const CONFIG_PATH = path.join(APP_DIR, 'config.json');
+if (app.isPackaged && !fs.existsSync(CONFIG_PATH)) {
+  try {
+    fs.mkdirSync(APP_DIR, { recursive: true });
+    fs.copyFileSync(path.join(__dirname, 'config.json'), CONFIG_PATH);
+  } catch (e) {
+    console.error('config.json を用意できませんでした:', e.message);
+  }
+}
+
+// ポータブル版は起動のたびに一時フォルダへ展開されるので、ログイン時の起動には元の EXE を登録する
+const LOGIN_ITEM = { path: process.env.PORTABLE_EXECUTABLE_FILE || process.execPath };
 
 // config.json に書かれていない項目はこの値を使う
 const DEFAULTS = {
@@ -351,8 +364,8 @@ function buildMenu(link) {
       label: 'ログイン時に起動',
       type: 'checkbox',
       visible: process.platform !== 'linux',
-      checked: process.platform !== 'linux' && app.getLoginItemSettings().openAtLogin,
-      click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }),
+      checked: process.platform !== 'linux' && app.getLoginItemSettings(LOGIN_ITEM).openAtLogin,
+      click: (item) => app.setLoginItemSettings({ ...LOGIN_ITEM, openAtLogin: item.checked }),
     },
     { type: 'separator' },
     { label: '終了', click: () => app.quit() },

@@ -6,10 +6,56 @@
   "scripts": {
     "start": "electron .",
     "fetch-news": "node fetch-news.js",
-    "fetch-weather": "node fetch-weather.js"
+    "fetch-weather": "node fetch-weather.js",
+    "dist": "electron-builder --win"
+  },
+  "author": "syoney-dev",
+  "build": {
+    "appId": "com.syoney-dev.newsticker",
+    "productName": "SyoneyNewsticker",
+    "files": [
+      "*.js",
+      "index.html",
+      "config.json",
+      "assets/**",
+      "!latest_news.md",
+      "!latest_weather.json"
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    }
   },
   "devDependencies": {
-    "electron": "^44.4.5"
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "koffi": "^3.3.1"

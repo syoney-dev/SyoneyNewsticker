@@ -1,3 +1,4 @@
 node_modules/
 latest_news.md
 latest_weather.json
+dist/
